@@ -38,11 +38,29 @@ jobs:
         run: |
           set -euo pipefail
           : "${ANDROID_SDK_ROOT:=/usr/local/lib/android/sdk}"
-          SDKMANAGER="$(command -v sdkmanager)"
-          yes | "$SDKMANAGER" --licenses >/dev/null
-          "$SDKMANAGER" "ndk;${NDK_VERSION}"
+          SDKMANAGER="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          if [[ ! -x "$SDKMANAGER" ]]; then
+            echo "sdkmanager executable not found at: $SDKMANAGER"
+            echo "Available command-line tools:"
+            ls -la "$ANDROID_SDK_ROOT/cmdline-tools" || true
+            exit 1
+          fi
+
+          # Capture sdkmanager's exit status, not 'yes' (which may receive SIGPIPE
+          # after sdkmanager has accepted the licenses).
+          set +e
+          yes | "$SDKMANAGER" --sdk_root="$ANDROID_SDK_ROOT" --licenses >/dev/null
+          LICENSE_STATUS=${PIPESTATUS[1]}
+          set -e
+          if [[ "$LICENSE_STATUS" -ne 0 ]]; then
+            echo "sdkmanager --licenses failed with exit code $LICENSE_STATUS"
+            exit "$LICENSE_STATUS"
+          fi
+
+          "$SDKMANAGER" --sdk_root="$ANDROID_SDK_ROOT" "ndk;${NDK_VERSION}"
           echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> "$GITHUB_ENV"
           echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/${NDK_VERSION}" >> "$GITHUB_ENV"
+          test -d "$ANDROID_SDK_ROOT/ndk/${NDK_VERSION}"
 
       - name: Download and verify LAME source
         shell: bash
@@ -85,7 +103,7 @@ jobs:
           cp "lame-${LAME_VERSION}/include/lame.h" "$OUT/include/"
           cp "lame-${LAME_VERSION}/COPYING" "$OUT/licenses/"
           cp "lame-${LAME_VERSION}/LICENSE" "$OUT/licenses/"
-          printf 'LAME %s\nAndroid ABI: %s\nTarget API: %s\n' \
+          printf 'LAME %s\\nAndroid ABI: %s\\nTarget API: %s\\n' \
             "$LAME_VERSION" "${{ matrix.abi }}" "$ANDROID_API" > "$OUT/BUILD-INFO.txt"
           cd output
           tar -czf "lame-${{ matrix.abi }}.tar.gz" "${{ matrix.abi }}"
