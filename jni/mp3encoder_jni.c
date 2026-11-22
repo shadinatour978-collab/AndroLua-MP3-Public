@@ -142,10 +142,10 @@ cleanup:
 }
 
 JNIEXPORT jint JNICALL
-Java_com_androlua_mp3_Mp3Encoder_encodeWavNative(JNIEnv *env, jclass clazz,
+Java_com_androlua_mp3_Mp3Encoder_encodeWavNative(JNIEnv *env, jobject instance,
                                                   jstring input, jstring output,
                                                   jint bitrate) {
-    (void)clazz;
+    (void)instance;
     if (!input || !output) return ERR_ARGUMENT;
     const char *in_path = (*env)->GetStringUTFChars(env, input, NULL);
     if (!in_path) return ERR_ARGUMENT;
