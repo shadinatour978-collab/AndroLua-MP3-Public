@@ -104,7 +104,7 @@ jobs:
           cp "lame-${LAME_VERSION}/include/lame.h" "$OUT/include/"
           cp "lame-${LAME_VERSION}/COPYING" "$OUT/licenses/"
           cp "lame-${LAME_VERSION}/LICENSE" "$OUT/licenses/"
-          printf 'LAME %s\\nAndroid ABI: %s\\nTarget API: %s\\n' \
+          printf 'LAME %s\nAndroid ABI: %s\nTarget API: %s\n' \
             "$LAME_VERSION" "${{ matrix.abi }}" "$ANDROID_API" > "$OUT/BUILD-INFO.txt"
           cd output
           tar -czf "lame-${{ matrix.abi }}.tar.gz" "${{ matrix.abi }}"
