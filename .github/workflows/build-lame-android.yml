@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   build-lame:
-    name: Build LAME/JNI for \${{ matrix.abi }}
+    name: Build LAME/JNI for ${{ matrix.abi }}
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
@@ -41,7 +41,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          : "\${ANDROID_SDK_ROOT:=/usr/local/lib/android/sdk}"
+          : "${ANDROID_SDK_ROOT:=/usr/local/lib/android/sdk}"
           SDKMANAGER="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
           if [[ ! -x "$SDKMANAGER" ]]; then
             echo "sdkmanager executable not found at: $SDKMANAGER"
@@ -51,35 +51,35 @@ jobs:
           fi
           set +e
           yes | "$SDKMANAGER" --sdk_root="$ANDROID_SDK_ROOT" --licenses >/dev/null
-          LICENSE_STATUS=\${PIPESTATUS[1]}
+          LICENSE_STATUS=${PIPESTATUS[1]}
           set -e
           if [[ "$LICENSE_STATUS" -ne 0 ]]; then
             echo "sdkmanager --licenses failed with exit code $LICENSE_STATUS"
             exit "$LICENSE_STATUS"
           fi
-          "$SDKMANAGER" --sdk_root="$ANDROID_SDK_ROOT" "ndk;\${NDK_VERSION}" "build-tools;\${BUILD_TOOLS_VERSION}"
+          "$SDKMANAGER" --sdk_root="$ANDROID_SDK_ROOT" "ndk;${NDK_VERSION}" "build-tools;${BUILD_TOOLS_VERSION}"
           echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> "$GITHUB_ENV"
-          echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/\${NDK_VERSION}" >> "$GITHUB_ENV"
-          test -d "$ANDROID_SDK_ROOT/ndk/\${NDK_VERSION}"
-          test -x "$ANDROID_SDK_ROOT/build-tools/\${BUILD_TOOLS_VERSION}/d8"
+          echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/${NDK_VERSION}" >> "$GITHUB_ENV"
+          test -d "$ANDROID_SDK_ROOT/ndk/${NDK_VERSION}"
+          test -x "$ANDROID_SDK_ROOT/build-tools/${BUILD_TOOLS_VERSION}/d8"
 
       - name: Download and verify LAME source
         shell: bash
         run: |
           set -euo pipefail
-          curl --fail --location --retry 3 "https://downloads.sourceforge.net/lame/lame-\${LAME_VERSION}.tar.gz" --output "lame-\${LAME_VERSION}.tar.gz"
-          echo "ddfe36cab873794038ae2c1210557ad34857a4b6bdc515785d1da9e175b1da1e  lame-\${LAME_VERSION}.tar.gz" | sha256sum --check
-          tar -xzf "lame-\${LAME_VERSION}.tar.gz"
+          curl --fail --location --retry 3 "https://downloads.sourceforge.net/lame/lame-${LAME_VERSION}.tar.gz" --output "lame-${LAME_VERSION}.tar.gz"
+          echo "ddfe36cab873794038ae2c1210557ad34857a4b6bdc515785d1da9e175b1da1e  lame-${LAME_VERSION}.tar.gz" | sha256sum --check
+          tar -xzf "lame-${LAME_VERSION}.tar.gz"
 
       - name: Build LAME static encoder
         shell: bash
         run: |
           set -euo pipefail
-          cd "lame-\${LAME_VERSION}"
+          cd "lame-${LAME_VERSION}"
           TOOLCHAIN="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64"
-          HOST="\${{ matrix.host }}"
-          CLANG_TARGET="\${{ matrix.clang_target }}"
-          export CC="$TOOLCHAIN/bin/\${CLANG_TARGET}\${ANDROID_API}-clang"
+          HOST="${{ matrix.host }}"
+          CLANG_TARGET="${{ matrix.clang_target }}"
+          export CC="$TOOLCHAIN/bin/${CLANG_TARGET}${ANDROID_API}-clang"
           export AR="$TOOLCHAIN/bin/llvm-ar"
           export RANLIB="$TOOLCHAIN/bin/llvm-ranlib"
           export STRIP="$TOOLCHAIN/bin/llvm-strip"
@@ -93,16 +93,16 @@ jobs:
         run: |
           set -euo pipefail
           TOOLCHAIN="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64"
-          CLANG_TARGET="\${{ matrix.clang_target }}"
-          CC="$TOOLCHAIN/bin/\${CLANG_TARGET}\${ANDROID_API}-clang"
-          ABI="\${{ matrix.abi }}"
+          CLANG_TARGET="${{ matrix.clang_target }}"
+          CC="$TOOLCHAIN/bin/${CLANG_TARGET}${ANDROID_API}-clang"
+          ABI="${{ matrix.abi }}"
           OUT="$GITHUB_WORKSPACE/output/$ABI"
           mkdir -p "$OUT/lib" "$OUT/classes" "$OUT/dex"
-          "$CC" -shared -fPIC -O2 -I"$TOOLCHAIN/sysroot/usr/include" -I"$GITHUB_WORKSPACE/lame-\${LAME_VERSION}/include" "$GITHUB_WORKSPACE/jni/mp3encoder_jni.c" "$GITHUB_WORKSPACE/lame-\${LAME_VERSION}/libmp3lame/.libs/libmp3lame.a" -Wl,--no-undefined -lm -o "$OUT/lib/libmp3encoder.so"
+          "$CC" -shared -fPIC -O2 -I"$TOOLCHAIN/sysroot/usr/include" -I"$GITHUB_WORKSPACE/lame-${LAME_VERSION}/include" "$GITHUB_WORKSPACE/jni/mp3encoder_jni.c" "$GITHUB_WORKSPACE/lame-${LAME_VERSION}/libmp3lame/.libs/libmp3lame.a" -Wl,--no-undefined -lm -o "$OUT/lib/libmp3encoder.so"
           "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h "$OUT/lib/libmp3encoder.so"
           "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-nm" --dynamic --defined-only "$OUT/lib/libmp3encoder.so" | grep "Java_com_androlua_mp3_Mp3Encoder_encodeWavNative"
           javac -source 8 -target 8 -d "$OUT/classes" java/com/androlua/mp3/Mp3Encoder.java
-          "$ANDROID_SDK_ROOT/build-tools/\${BUILD_TOOLS_VERSION}/d8" --min-api 21 --output "$OUT/dex" "$OUT/classes/com/androlua/mp3/Mp3Encoder.class"
+          "$ANDROID_SDK_ROOT/build-tools/${BUILD_TOOLS_VERSION}/d8" --min-api 21 --output "$OUT/dex" "$OUT/classes/com/androlua/mp3/Mp3Encoder.class"
           jar --create --file "$OUT/mp3encoder.jar" -C "$OUT/dex" classes.dex
           unzip -l "$OUT/mp3encoder.jar" | grep "classes.dex"
           test -s "$OUT/lib/libmp3encoder.so"
@@ -112,20 +112,20 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          OUT="$GITHUB_WORKSPACE/output/\${{ matrix.abi }}"
+          OUT="$GITHUB_WORKSPACE/output/${{ matrix.abi }}"
           mkdir -p "$OUT/lib" "$OUT/include" "$OUT/licenses"
-          cp "lame-\${LAME_VERSION}/libmp3lame/.libs/libmp3lame.a" "$OUT/lib/"
-          cp "lame-\${LAME_VERSION}/include/lame.h" "$OUT/include/"
-          cp "lame-\${LAME_VERSION}/COPYING" "$OUT/licenses/"
-          cp "lame-\${LAME_VERSION}/LICENSE" "$OUT/licenses/"
-          printf 'LAME %s\nAndroid ABI: %s\nTarget API: %s\n' "$LAME_VERSION" "\${{ matrix.abi }}" "$ANDROID_API" > "$OUT/BUILD-INFO.txt"
+          cp "lame-${LAME_VERSION}/libmp3lame/.libs/libmp3lame.a" "$OUT/lib/"
+          cp "lame-${LAME_VERSION}/include/lame.h" "$OUT/include/"
+          cp "lame-${LAME_VERSION}/COPYING" "$OUT/licenses/"
+          cp "lame-${LAME_VERSION}/LICENSE" "$OUT/licenses/"
+          printf 'LAME %s\nAndroid ABI: %s\nTarget API: %s\n' "$LAME_VERSION" "${{ matrix.abi }}" "$ANDROID_API" > "$OUT/BUILD-INFO.txt"
           cd output
-          tar -czf "lame-\${{ matrix.abi }}.tar.gz" "\${{ matrix.abi }}"
+          tar -czf "lame-${{ matrix.abi }}.tar.gz" "${{ matrix.abi }}"
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: lame-\${{ matrix.abi }}
-          path: output/lame-\${{ matrix.abi }}.tar.gz
+          name: lame-${{ matrix.abi }}
+          path: output/lame-${{ matrix.abi }}.tar.gz
           if-no-files-found: error
           retention-days: 14
