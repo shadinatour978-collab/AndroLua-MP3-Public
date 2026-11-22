@@ -3,15 +3,15 @@ package com.androlua.mp3;
 /**
  * Minimal JNI bridge to the LAME MP3 encoder.
  *
- * Call loadNativeLibrary with the absolute path to libmp3encoder.so before
- * calling encodeWav. Input must be little-endian, 16-bit PCM WAV (mono/stereo).
+ * Load this class from a DexClassLoader, create an instance, then call
+ * loadNativeLibrary with the absolute path to libmp3encoder.so.
  */
 public final class Mp3Encoder {
-    private static boolean loaded;
+    private boolean loaded;
 
-    private Mp3Encoder() {}
+    public Mp3Encoder() {}
 
-    public static synchronized void loadNativeLibrary(String absolutePath) {
+    public synchronized void loadNativeLibrary(String absolutePath) {
         if (loaded) return;
         if (absolutePath == null || absolutePath.length() == 0) {
             throw new IllegalArgumentException("Native library path is empty");
@@ -26,11 +26,11 @@ public final class Mp3Encoder {
      *         4 unsupported WAV format; 5 LAME initialization; 6 output I/O;
      *         7 encoding/write failure.
      */
-    public static int encodeWav(String inputPath, String outputPath, int bitrateKbps) {
+    public int encodeWav(String inputPath, String outputPath, int bitrateKbps) {
         if (!loaded) throw new IllegalStateException("Call loadNativeLibrary first");
         if (inputPath == null || outputPath == null) return 1;
         return encodeWavNative(inputPath, outputPath, bitrateKbps);
     }
 
-    private static native int encodeWavNative(String inputPath, String outputPath, int bitrateKbps);
+    private native int encodeWavNative(String inputPath, String outputPath, int bitrateKbps);
 }
