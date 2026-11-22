@@ -89,7 +89,8 @@ jobs:
             --host="$HOST" \
             --disable-shared \
             --enable-static \
-            --disable-frontend
+            --disable-frontend \
+            --disable-decoder
           make -C libmp3lame -j2
           test -s libmp3lame/.libs/libmp3lame.a
 
