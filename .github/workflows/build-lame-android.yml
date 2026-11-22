@@ -1,0 +1,94 @@
+name: Build LAME static libraries for Android
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "build/lame-static-android"
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  build-lame:
+    name: Build LAME for ${{ matrix.abi }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - abi: arm64-v8a
+            target: aarch64-linux-android
+          - abi: armeabi-v7a
+            target: arm-linux-androideabi
+
+    env:
+      LAME_VERSION: "3.100"
+      ANDROID_API: "21"
+      NDK_VERSION: "27.2.12479018"
+
+    steps:
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android NDK
+        run: |
+          yes | sdkmanager --licenses >/dev/null
+          sdkmanager "ndk;${NDK_VERSION}"
+          echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/${NDK_VERSION}" >> "$GITHUB_ENV"
+
+      - name: Download and verify LAME source
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 \
+            "https://downloads.sourceforge.net/lame/lame-${LAME_VERSION}.tar.gz" \
+            --output lame-${LAME_VERSION}.tar.gz
+          echo "ddfe36cab873794038ae2c1210557ad34857a4b6bdc515785d1da9e175b1da1e  lame-${LAME_VERSION}.tar.gz" | sha256sum --check
+          tar -xzf lame-${LAME_VERSION}.tar.gz
+
+      - name: Build libmp3lame
+        shell: bash
+        working-directory: lame-${{ env.LAME_VERSION }}
+        run: |
+          set -euo pipefail
+          TOOLCHAIN="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64"
+          TARGET="${{ matrix.target }}"
+          export CC="$TOOLCHAIN/bin/${TARGET}${ANDROID_API}-clang"
+          export AR="$TOOLCHAIN/bin/llvm-ar"
+          export RANLIB="$TOOLCHAIN/bin/llvm-ranlib"
+          export STRIP="$TOOLCHAIN/bin/llvm-strip"
+          export CFLAGS="-O2 -fPIC"
+          ./configure \
+            --host="$TARGET" \
+            --disable-shared \
+            --enable-static \
+            --disable-frontend
+          make -C libmp3lame -j2
+          test -s libmp3lame/.libs/libmp3lame.a
+
+      - name: Package library and license files
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$GITHUB_WORKSPACE/output/${{ matrix.abi }}"
+          mkdir -p "$OUT/lib" "$OUT/include" "$OUT/licenses"
+          cp "lame-${LAME_VERSION}/libmp3lame/.libs/libmp3lame.a" "$OUT/lib/"
+          cp "lame-${LAME_VERSION}/include/lame.h" "$OUT/include/"
+          cp "lame-${LAME_VERSION}/COPYING" "$OUT/licenses/"
+          cp "lame-${LAME_VERSION}/LICENSE" "$OUT/licenses/"
+          printf 'LAME %s\nAndroid ABI: %s\nTarget API: %s\n' \
+            "$LAME_VERSION" "${{ matrix.abi }}" "$ANDROID_API" > "$OUT/BUILD-INFO.txt"
+          cd output
+          tar -czf "lame-${{ matrix.abi }}.tar.gz" "${{ matrix.abi }}"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lame-${{ matrix.abi }}
+          path: output/lame-${{ matrix.abi }}.tar.gz
+          if-no-files-found: error
+          retention-days: 14
