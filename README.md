@@ -21,11 +21,16 @@ Each ABI artifact contains:
 
 Class name: `com.androlua.mp3.Mp3Encoder`
 
-Before encoding, load the native library by its absolute path:
+Load the JAR with AndroLua+'s `activity.loadDex(path)`, load the class from the returned
+DexClassLoader, create an instance, then load the matching ABI's native library by its
+absolute path:
 
 ```java
-Mp3Encoder.loadNativeLibrary("/absolute/path/to/libmp3encoder.so");
-int result = Mp3Encoder.encodeWav(inputWavPath, outputMp3Path, 192);
+DexClassLoader loader = activity.loadDex("mp3encoder.jar");
+Class<?> type = loader.loadClass("com.androlua.mp3.Mp3Encoder");
+Mp3Encoder encoder = (Mp3Encoder) type.newInstance();
+encoder.loadNativeLibrary("/absolute/path/to/libmp3encoder.so");
+int result = encoder.encodeWav(inputWavPath, outputMp3Path, 192);
 ```
 
 The wrapper must be loaded through a DEX-capable class loader, and the matching ABI's
